@@ -1,11 +1,8 @@
 ﻿using ModAPI.Attributes;
+using TheForest.Items.Inventory;
 using TheForest.Utils;
 using UnityEngine;
 
-/// <summary>
-/// The Forest Custom HUD Mod
-/// Replaces circular gauges with rectangle bars
-/// </summary>
 class CustomHudMod : MonoBehaviour
 {
     [ExecuteOnGameStart]
@@ -14,42 +11,46 @@ class CustomHudMod : MonoBehaviour
         new GameObject("__CustomHudMod__").AddComponent<CustomHudMod>();
     }
 
-    #region === Settings ===
+    private const float BASE_HEIGHT = 1080f;
 
-    // Position - TopLeft
     private HudPosition currentPosition = HudPosition.TopLeft;
-    private float offsetX = 20f;
-    private float offsetY = 20f;
+    private float baseOffsetX = 15f;
+    private float baseOffsetY = 15f;
 
-    // Size
-    private float barWidth = 200f;
-    private float barHeight = 18f;
-    private float barSpacing = 6f;
+    private float baseBarWidth = 160f;
+    private float baseBarHeight = 14f;
+    private float baseBarSpacing = 5f;
+    private float baseBorderWidth = 1.5f;
+    private float baseLabelWidth = 55f;
+    private float baseValueWidth = 50f;
+    private float baseLabelFontSize = 10f;
+    private float baseValueFontSize = 9f;
 
-    // Style
     private bool showLabels = true;
     private bool showValues = true;
     private bool showBorder = true;
     private bool showBackground = true;
-    private float borderWidth = 2f;
 
-    #endregion
+    private float scale = 1f;
+    private float barWidth;
+    private float barHeight;
+    private float barSpacing;
+    private float borderWidth;
+    private float offsetX;
+    private float offsetY;
+    private float labelWidth;
+    private float valueWidth;
+    private int labelFontSize;
+    private int valueFontSize;
 
-    #region === Enums ===
+    private int lastScreenWidth;
+    private int lastScreenHeight;
 
     public enum HudPosition
     {
-        TopLeft,
-        TopCenter,
-        TopRight,
-        BottomLeft,
-        BottomCenter,
-        BottomRight
+        TopLeft, TopCenter, TopRight,
+        BottomLeft, BottomCenter, BottomRight
     }
-
-    #endregion
-
-    #region === Colors ===
 
     private Color healthFillColor = new Color(0.85f, 0.2f, 0.2f, 1f);
     private Color staminaFillColor = new Color(0.2f, 0.8f, 0.3f, 1f);
@@ -75,21 +76,14 @@ class CustomHudMod : MonoBehaviour
     private float warningThreshold = 0.25f;
     private float pulseSpeed = 3f;
 
-    #endregion
-
-    #region === Internal Variables ===
-
     private Texture2D whiteTexture;
     private GUIStyle labelStyle;
     private GUIStyle valueStyle;
     private bool stylesInitialized = false;
     private bool isInitialized = false;
     private bool originalHudHidden = false;
+    private bool playerAwake = false;
     private float pulseTime = 0f;
-
-    #endregion
-
-    #region === Unity Lifecycle ===
 
     void Start()
     {
@@ -105,9 +99,9 @@ class CustomHudMod : MonoBehaviour
         whiteTexture.Apply();
 
         DontDestroyOnLoad(gameObject);
+        CalculateScale();
 
         isInitialized = true;
-        ModAPI.Log.Write("[CustomHudMod] Initialized!");
     }
 
     void Update()
@@ -116,30 +110,35 @@ class CustomHudMod : MonoBehaviour
 
         pulseTime += Time.deltaTime * pulseSpeed;
 
-        // Keep hiding original HUD every frame
-        if (!originalHudHidden)
+        if (Screen.width != lastScreenWidth || Screen.height != lastScreenHeight)
         {
-            HideOriginalHudComplete();
+            CalculateScale();
+            stylesInitialized = false;
+        }
+
+        // 오리지널 HUD는 항상 숨김
+        HideOriginalHudComplete();
+
+        // 플레이어 조작 가능 여부 체크 (커스텀 HUD 표시용)
+        if (!playerAwake && IsPlayerAwake())
+        {
+            playerAwake = true;
         }
     }
 
     void LateUpdate()
     {
-        // Double check - hide in LateUpdate too
+        // 오리지널 HUD는 항상 숨김
         HideOriginalHudComplete();
     }
 
     void OnGUI()
     {
         if (!isInitialized) return;
+        if (!playerAwake) return;
+        if (!CanShowHud()) return;
 
         InitStyles();
-
-        if (LocalPlayer.Stats == null) return;
-        if (LocalPlayer.IsInPauseMenu) return;
-        if (LocalPlayer.Inventory == null) return;
-        if (!LocalPlayer.Inventory.enabled) return;
-
         DrawCustomHud();
     }
 
@@ -148,9 +147,55 @@ class CustomHudMod : MonoBehaviour
         ShowOriginalHud();
     }
 
-    #endregion
+    bool IsPlayerAwake()
+    {
+        if (LocalPlayer.Stats == null) return false;
+        if (LocalPlayer.Inventory == null) return false;
+        if (!LocalPlayer.Inventory.enabled) return false;
+        if (LocalPlayer.AnimControl == null) return false;
+        if (Clock.planecrash) return false;
+        if (LocalPlayer.AnimControl.introCutScene) return false;
+        if (LocalPlayer.Inventory.CurrentView == PlayerInventory.PlayerViews.Loading) return false;
 
-    #region === Original HUD Control ===
+        return true;
+    }
+
+    bool CanShowHud()
+    {
+        if (LocalPlayer.Stats == null) return false;
+        if (LocalPlayer.Inventory == null) return false;
+        if (!LocalPlayer.Inventory.enabled) return false;
+        if (LocalPlayer.IsInPauseMenu) return false;
+
+        if (LocalPlayer.AnimControl != null)
+        {
+            if (LocalPlayer.AnimControl.introCutScene) return false;
+            if (LocalPlayer.AnimControl.endGameCutScene) return false;
+        }
+
+        return true;
+    }
+
+    void CalculateScale()
+    {
+        lastScreenWidth = Screen.width;
+        lastScreenHeight = Screen.height;
+
+        scale = Screen.height / BASE_HEIGHT;
+        scale = Mathf.Clamp(scale, 0.6f, 2.2f);
+
+        barWidth = baseBarWidth * scale;
+        barHeight = baseBarHeight * scale;
+        barSpacing = baseBarSpacing * scale;
+        borderWidth = Mathf.Max(1f, baseBorderWidth * scale);
+        offsetX = baseOffsetX * scale;
+        offsetY = baseOffsetY * scale;
+        labelWidth = baseLabelWidth * scale;
+        valueWidth = baseValueWidth * scale;
+
+        labelFontSize = Mathf.Clamp(Mathf.RoundToInt(baseLabelFontSize * scale), 8, 20);
+        valueFontSize = Mathf.Clamp(Mathf.RoundToInt(baseValueFontSize * scale), 7, 18);
+    }
 
     void HideOriginalHudComplete()
     {
@@ -160,111 +205,45 @@ class CustomHudMod : MonoBehaviour
         {
             HudGui hud = Scene.HudGui;
 
-            // === Health ===
-            if (hud.HealthBar != null)
-            {
-                hud.HealthBar.gameObject.SetActive(false);
-                hud.HealthBar.enabled = false;
-            }
-            if (hud.HealthBarTarget != null)
-            {
-                hud.HealthBarTarget.gameObject.SetActive(false);
-                hud.HealthBarTarget.enabled = false;
-            }
+            if (hud.HealthBar != null) { hud.HealthBar.gameObject.SetActive(false); hud.HealthBar.enabled = false; }
+            if (hud.HealthBarTarget != null) { hud.HealthBarTarget.gameObject.SetActive(false); hud.HealthBarTarget.enabled = false; }
             SetGameObjectActive(hud.HealthBarOutline, false);
 
-            // === Stamina ===
-            if (hud.StaminaBar != null)
-            {
-                hud.StaminaBar.gameObject.SetActive(false);
-                hud.StaminaBar.enabled = false;
-            }
+            if (hud.StaminaBar != null) { hud.StaminaBar.gameObject.SetActive(false); hud.StaminaBar.enabled = false; }
             SetGameObjectActive(hud.StaminaBarOutline, false);
 
-            // === Energy ===
-            if (hud.EnergyBar != null)
-            {
-                hud.EnergyBar.gameObject.SetActive(false);
-                hud.EnergyBar.enabled = false;
-            }
+            if (hud.EnergyBar != null) { hud.EnergyBar.gameObject.SetActive(false); hud.EnergyBar.enabled = false; }
             SetGameObjectActive(hud.EnergyBarOutline, false);
 
-            // === Stomach (Food) ===
-            if (hud.Stomach != null)
-            {
-                hud.Stomach.gameObject.SetActive(false);
-                hud.Stomach.enabled = false;
-            }
+            if (hud.Stomach != null) { hud.Stomach.gameObject.SetActive(false); hud.Stomach.enabled = false; }
             SetGameObjectActive(hud.StomachOutline, false);
-            if (hud.StomachStarvation != null)
-            {
-                hud.StomachStarvation.gameObject.SetActive(false);
-                hud.StomachStarvation.enabled = false;
-            }
+            if (hud.StomachStarvation != null) { hud.StomachStarvation.gameObject.SetActive(false); hud.StomachStarvation.enabled = false; }
 
-            // === Hydration (Water) ===
-            if (hud.Hydration != null)
-            {
-                hud.Hydration.gameObject.SetActive(false);
-                hud.Hydration.enabled = false;
-            }
+            if (hud.Hydration != null) { hud.Hydration.gameObject.SetActive(false); hud.Hydration.enabled = false; }
             SetGameObjectActive(hud.ThirstOutline, false);
-            if (hud.ThirstDamageTimer != null)
-            {
-                hud.ThirstDamageTimer.gameObject.SetActive(false);
-                hud.ThirstDamageTimer.enabled = false;
-            }
+            if (hud.ThirstDamageTimer != null) { hud.ThirstDamageTimer.gameObject.SetActive(false); hud.ThirstDamageTimer.enabled = false; }
 
-            // === Armor ===
-            if (hud.ArmorBar != null)
-            {
-                hud.ArmorBar.gameObject.SetActive(false);
-                hud.ArmorBar.enabled = false;
-            }
-            if (hud.ColdArmorBar != null)
-            {
-                hud.ColdArmorBar.gameObject.SetActive(false);
-                hud.ColdArmorBar.enabled = false;
-            }
+            if (hud.ArmorBar != null) { hud.ArmorBar.gameObject.SetActive(false); hud.ArmorBar.enabled = false; }
+            if (hud.ColdArmorBar != null) { hud.ColdArmorBar.gameObject.SetActive(false); hud.ColdArmorBar.enabled = false; }
 
-            // === Armor Nibbles ===
             if (hud.ArmorNibbles != null)
             {
                 for (int i = 0; i < hud.ArmorNibbles.Length; i++)
                 {
-                    if (hud.ArmorNibbles[i] != null)
-                    {
-                        hud.ArmorNibbles[i].gameObject.SetActive(false);
-                        hud.ArmorNibbles[i].enabled = false;
-                    }
+                    if (hud.ArmorNibbles[i] != null) { hud.ArmorNibbles[i].gameObject.SetActive(false); hud.ArmorNibbles[i].enabled = false; }
                 }
             }
 
-            // === Try to find and hide parent containers ===
-            // Health group
             if (hud.HealthBar != null && hud.HealthBar.transform.parent != null)
-            {
                 hud.HealthBar.transform.parent.gameObject.SetActive(false);
-            }
-
-            // Stomach group
             if (hud.Stomach != null && hud.Stomach.transform.parent != null)
-            {
                 hud.Stomach.transform.parent.gameObject.SetActive(false);
-            }
-
-            // Hydration group  
             if (hud.Hydration != null && hud.Hydration.transform.parent != null)
-            {
                 hud.Hydration.transform.parent.gameObject.SetActive(false);
-            }
 
             originalHudHidden = true;
         }
-        catch (System.Exception e)
-        {
-            ModAPI.Log.Write("[CustomHudMod] HUD hide error: " + e.Message);
-        }
+        catch { }
     }
 
     void ShowOriginalHud()
@@ -275,62 +254,24 @@ class CustomHudMod : MonoBehaviour
         {
             HudGui hud = Scene.HudGui;
 
-            if (hud.HealthBar != null)
-            {
-                hud.HealthBar.gameObject.SetActive(true);
-                hud.HealthBar.enabled = true;
-                if (hud.HealthBar.transform.parent != null)
-                    hud.HealthBar.transform.parent.gameObject.SetActive(true);
-            }
-            if (hud.HealthBarTarget != null)
-            {
-                hud.HealthBarTarget.gameObject.SetActive(true);
-                hud.HealthBarTarget.enabled = true;
-            }
+            if (hud.HealthBar != null) { hud.HealthBar.gameObject.SetActive(true); hud.HealthBar.enabled = true; if (hud.HealthBar.transform.parent != null) hud.HealthBar.transform.parent.gameObject.SetActive(true); }
+            if (hud.HealthBarTarget != null) { hud.HealthBarTarget.gameObject.SetActive(true); hud.HealthBarTarget.enabled = true; }
             SetGameObjectActive(hud.HealthBarOutline, true);
 
-            if (hud.StaminaBar != null)
-            {
-                hud.StaminaBar.gameObject.SetActive(true);
-                hud.StaminaBar.enabled = true;
-            }
+            if (hud.StaminaBar != null) { hud.StaminaBar.gameObject.SetActive(true); hud.StaminaBar.enabled = true; }
             SetGameObjectActive(hud.StaminaBarOutline, true);
 
-            if (hud.EnergyBar != null)
-            {
-                hud.EnergyBar.gameObject.SetActive(true);
-                hud.EnergyBar.enabled = true;
-            }
+            if (hud.EnergyBar != null) { hud.EnergyBar.gameObject.SetActive(true); hud.EnergyBar.enabled = true; }
             SetGameObjectActive(hud.EnergyBarOutline, true);
 
-            if (hud.Stomach != null)
-            {
-                hud.Stomach.gameObject.SetActive(true);
-                hud.Stomach.enabled = true;
-                if (hud.Stomach.transform.parent != null)
-                    hud.Stomach.transform.parent.gameObject.SetActive(true);
-            }
+            if (hud.Stomach != null) { hud.Stomach.gameObject.SetActive(true); hud.Stomach.enabled = true; if (hud.Stomach.transform.parent != null) hud.Stomach.transform.parent.gameObject.SetActive(true); }
             SetGameObjectActive(hud.StomachOutline, true);
 
-            if (hud.Hydration != null)
-            {
-                hud.Hydration.gameObject.SetActive(true);
-                hud.Hydration.enabled = true;
-                if (hud.Hydration.transform.parent != null)
-                    hud.Hydration.transform.parent.gameObject.SetActive(true);
-            }
+            if (hud.Hydration != null) { hud.Hydration.gameObject.SetActive(true); hud.Hydration.enabled = true; if (hud.Hydration.transform.parent != null) hud.Hydration.transform.parent.gameObject.SetActive(true); }
             SetGameObjectActive(hud.ThirstOutline, true);
 
-            if (hud.ArmorBar != null)
-            {
-                hud.ArmorBar.gameObject.SetActive(true);
-                hud.ArmorBar.enabled = true;
-            }
-            if (hud.ColdArmorBar != null)
-            {
-                hud.ColdArmorBar.gameObject.SetActive(true);
-                hud.ColdArmorBar.enabled = true;
-            }
+            if (hud.ArmorBar != null) { hud.ArmorBar.gameObject.SetActive(true); hud.ArmorBar.enabled = true; }
+            if (hud.ColdArmorBar != null) { hud.ColdArmorBar.gameObject.SetActive(true); hud.ColdArmorBar.enabled = true; }
         }
         catch { }
     }
@@ -340,36 +281,18 @@ class CustomHudMod : MonoBehaviour
         if (go != null) go.SetActive(active);
     }
 
-    #endregion
-
-    #region === Style Initialization ===
-
     void InitStyles()
     {
         if (stylesInitialized) return;
 
-        labelStyle = new GUIStyle(GUI.skin.label)
-        {
-            fontSize = 12,
-            fontStyle = FontStyle.Bold,
-            alignment = TextAnchor.MiddleLeft
-        };
+        labelStyle = new GUIStyle(GUI.skin.label) { fontSize = labelFontSize, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
         labelStyle.normal.textColor = labelColor;
 
-        valueStyle = new GUIStyle(GUI.skin.label)
-        {
-            fontSize = 11,
-            fontStyle = FontStyle.Normal,
-            alignment = TextAnchor.MiddleRight
-        };
+        valueStyle = new GUIStyle(GUI.skin.label) { fontSize = valueFontSize, fontStyle = FontStyle.Normal, alignment = TextAnchor.MiddleRight };
         valueStyle.normal.textColor = valueColor;
 
         stylesInitialized = true;
     }
-
-    #endregion
-
-    #region === HUD Drawing ===
 
     void DrawCustomHud()
     {
@@ -378,108 +301,79 @@ class CustomHudMod : MonoBehaviour
 
         if (showBackground)
         {
-            float panelHeight = (barHeight + barSpacing) * 6 + 10;
-            float panelWidth = barWidth + 20;
-
-            if (showLabels) panelWidth += 70;
-            if (showValues) panelWidth += 65;
+            float panelHeight = (barHeight + barSpacing) * 6 + (10 * scale);
+            float panelWidth = barWidth + (20 * scale);
+            if (showLabels) panelWidth += labelWidth;
+            if (showValues) panelWidth += valueWidth;
 
             GUI.color = panelBgColor;
-            GUI.DrawTexture(new Rect(startPos.x - 10, startPos.y - 5, panelWidth, panelHeight), whiteTexture);
+            GUI.DrawTexture(new Rect(startPos.x - (10 * scale), startPos.y - (5 * scale), panelWidth, panelHeight), whiteTexture);
             GUI.color = Color.white;
         }
 
-        // Health
-        DrawStatBar(startPos.x, currentY, "Health",
-            LocalPlayer.Stats.Health, 100f,
-            healthFillColor, healthBgColor, true);
+        DrawStatBar(startPos.x, currentY, "Health", LocalPlayer.Stats.Health, 100f, healthFillColor, healthBgColor, true);
         currentY += barHeight + barSpacing;
 
-        // Stamina
-        DrawStatBar(startPos.x, currentY, "Stamina",
-            LocalPlayer.Stats.Stamina, LocalPlayer.Stats.Energy,
-            staminaFillColor, staminaBgColor, true);
+        DrawStatBar(startPos.x, currentY, "Stamina", LocalPlayer.Stats.Stamina, LocalPlayer.Stats.Energy, staminaFillColor, staminaBgColor, true);
         currentY += barHeight + barSpacing;
 
-        // Energy
-        DrawStatBar(startPos.x, currentY, "Energy",
-            LocalPlayer.Stats.Energy, 100f,
-            energyFillColor, energyBgColor, true);
+        DrawStatBar(startPos.x, currentY, "Energy", LocalPlayer.Stats.Energy, 100f, energyFillColor, energyBgColor, true);
         currentY += barHeight + barSpacing;
 
-        // Food
-        DrawStatBar(startPos.x, currentY, "Food",
-            LocalPlayer.Stats.Fullness * 100f, 100f,
-            foodFillColor, foodBgColor, true);
+        DrawStatBar(startPos.x, currentY, "Food", LocalPlayer.Stats.Fullness * 100f, 100f, foodFillColor, foodBgColor, true);
         currentY += barHeight + barSpacing;
 
-        // Water
-        DrawStatBar(startPos.x, currentY, "Water",
-            (1f - LocalPlayer.Stats.Thirst) * 100f, 100f,
-            waterFillColor, waterBgColor, true);
+        DrawStatBar(startPos.x, currentY, "Water", (1f - LocalPlayer.Stats.Thirst) * 100f, 100f, waterFillColor, waterBgColor, true);
         currentY += barHeight + barSpacing;
 
-        // Armor
         if (LocalPlayer.Stats.Armor > 0)
         {
-            DrawStatBar(startPos.x, currentY, "Armor",
-                LocalPlayer.Stats.Armor, 10f,
-                armorFillColor, armorBgColor, false);
+            DrawStatBar(startPos.x, currentY, "Armor", LocalPlayer.Stats.Armor, 10f, armorFillColor, armorBgColor, false);
         }
     }
 
-    void DrawStatBar(float x, float y, string label, float current, float max,
-                     Color fillColor, Color bgColor, bool enableWarning)
+    void DrawStatBar(float x, float y, string label, float current, float max, Color fillColor, Color bgColor, bool enableWarning)
     {
-        float labelWidth = showLabels ? 70f : 0f;
-        float valueWidth = showValues ? 65f : 0f;
+        float currentLabelWidth = showLabels ? labelWidth : 0f;
+        float currentValueWidth = showValues ? valueWidth : 0f;
         float actualBarWidth = barWidth;
 
         float fillAmount = Mathf.Clamp01(current / max);
-
         bool isWarning = enableWarning && fillAmount < warningThreshold;
         float pulse = isWarning ? (Mathf.Sin(pulseTime) * 0.3f + 0.7f) : 1f;
 
-        // Label
         if (showLabels)
         {
             GUI.color = shadowColor;
-            GUI.Label(new Rect(x + 1, y + 1, labelWidth, barHeight), label, labelStyle);
-
+            GUI.Label(new Rect(x + 1, y + 1, currentLabelWidth, barHeight), label, labelStyle);
             GUI.color = isWarning ? Color.Lerp(labelColor, warningColor, pulse) : labelColor;
-            GUI.Label(new Rect(x, y, labelWidth, barHeight), label, labelStyle);
+            GUI.Label(new Rect(x, y, currentLabelWidth, barHeight), label, labelStyle);
         }
 
-        float barX = x + labelWidth;
+        float barX = x + currentLabelWidth;
 
-        // Background
         GUI.color = bgColor;
         GUI.DrawTexture(new Rect(barX, y, actualBarWidth, barHeight), whiteTexture);
 
-        // Fill
         Color currentFillColor = isWarning ? Color.Lerp(fillColor, warningColor, pulse) : fillColor;
         currentFillColor.a *= pulse;
         GUI.color = currentFillColor;
         GUI.DrawTexture(new Rect(barX, y, actualBarWidth * fillAmount, barHeight), whiteTexture);
 
-        // Border
         if (showBorder)
         {
             GUI.color = isWarning ? Color.Lerp(borderColor, warningColor, pulse * 0.5f) : borderColor;
             DrawBorder(new Rect(barX, y, actualBarWidth, barHeight), borderWidth);
         }
 
-        // Value
         if (showValues)
         {
             string valueText = string.Format("{0:F0}/{1:F0}", current, max);
-            float valueX = barX + actualBarWidth + 5;
-
+            float valueX = barX + actualBarWidth + (5 * scale);
             GUI.color = shadowColor;
-            GUI.Label(new Rect(valueX + 1, y + 1, valueWidth, barHeight), valueText, valueStyle);
-
+            GUI.Label(new Rect(valueX + 1, y + 1, currentValueWidth, barHeight), valueText, valueStyle);
             GUI.color = isWarning ? Color.Lerp(valueColor, warningColor, pulse) : valueColor;
-            GUI.Label(new Rect(valueX, y, valueWidth, barHeight), valueText, valueStyle);
+            GUI.Label(new Rect(valueX, y, currentValueWidth, barHeight), valueText, valueStyle);
         }
 
         GUI.color = Color.white;
@@ -497,42 +391,22 @@ class CustomHudMod : MonoBehaviour
     {
         float totalHeight = (barHeight + barSpacing) * 6;
         float totalWidth = barWidth;
-        if (showLabels) totalWidth += 70;
-        if (showValues) totalWidth += 65;
+        if (showLabels) totalWidth += labelWidth;
+        if (showValues) totalWidth += valueWidth;
 
         float x = offsetX;
         float y = offsetY;
 
         switch (currentPosition)
         {
-            case HudPosition.TopLeft:
-                x = offsetX;
-                y = offsetY;
-                break;
-            case HudPosition.TopCenter:
-                x = (Screen.width - totalWidth) / 2;
-                y = offsetY;
-                break;
-            case HudPosition.TopRight:
-                x = Screen.width - totalWidth - offsetX;
-                y = offsetY;
-                break;
-            case HudPosition.BottomLeft:
-                x = offsetX;
-                y = Screen.height - totalHeight - offsetY;
-                break;
-            case HudPosition.BottomCenter:
-                x = (Screen.width - totalWidth) / 2;
-                y = Screen.height - totalHeight - offsetY;
-                break;
-            case HudPosition.BottomRight:
-                x = Screen.width - totalWidth - offsetX;
-                y = Screen.height - totalHeight - offsetY;
-                break;
+            case HudPosition.TopLeft: x = offsetX; y = offsetY; break;
+            case HudPosition.TopCenter: x = (Screen.width - totalWidth) / 2; y = offsetY; break;
+            case HudPosition.TopRight: x = Screen.width - totalWidth - offsetX; y = offsetY; break;
+            case HudPosition.BottomLeft: x = offsetX; y = Screen.height - totalHeight - offsetY; break;
+            case HudPosition.BottomCenter: x = (Screen.width - totalWidth) / 2; y = Screen.height - totalHeight - offsetY; break;
+            case HudPosition.BottomRight: x = Screen.width - totalWidth - offsetX; y = Screen.height - totalHeight - offsetY; break;
         }
 
         return new Vector2(x, y);
     }
-
-    #endregion
 }
