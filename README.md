@@ -1,4 +1,4 @@
-[English Here](/doc/english.md)
+[English](/doc/english.md)
 
 ---
 
