@@ -18,13 +18,13 @@ class CustomHudMod : MonoBehaviour
     private float baseOffsetY = 15f;
 
     private float baseBarWidth = 160f;
-    private float baseBarHeight = 14f;
+    private float baseBarHeight = 20f;
     private float baseBarSpacing = 5f;
     private float baseBorderWidth = 1.5f;
     private float baseLabelWidth = 55f;
     private float baseValueWidth = 50f;
-    private float baseLabelFontSize = 10f;
-    private float baseValueFontSize = 9f;
+    private float baseLabelFontSize = 11f;
+    private float baseValueFontSize = 10f;
 
     private bool showLabels = true;
     private bool showValues = true;
@@ -81,7 +81,6 @@ class CustomHudMod : MonoBehaviour
     private GUIStyle valueStyle;
     private bool stylesInitialized = false;
     private bool isInitialized = false;
-    private bool originalHudHidden = false;
     private bool playerAwake = false;
     private float pulseTime = 0f;
 
@@ -240,8 +239,6 @@ class CustomHudMod : MonoBehaviour
                 hud.Stomach.transform.parent.gameObject.SetActive(false);
             if (hud.Hydration != null && hud.Hydration.transform.parent != null)
                 hud.Hydration.transform.parent.gameObject.SetActive(false);
-
-            originalHudHidden = true;
         }
         catch { }
     }
@@ -299,15 +296,17 @@ class CustomHudMod : MonoBehaviour
         Vector2 startPos = CalculateStartPosition();
         float currentY = startPos.y;
 
+        int barCount = (LocalPlayer.Stats.Armor > 0) ? 6 : 5;
+
         if (showBackground)
         {
-            float panelHeight = (barHeight + barSpacing) * 6 + (10 * scale);
+            float panelHeight = (barHeight + barSpacing) * barCount - barSpacing + (8 * scale);
             float panelWidth = barWidth + (20 * scale);
             if (showLabels) panelWidth += labelWidth;
             if (showValues) panelWidth += valueWidth;
 
             GUI.color = panelBgColor;
-            GUI.DrawTexture(new Rect(startPos.x - (10 * scale), startPos.y - (5 * scale), panelWidth, panelHeight), whiteTexture);
+            GUI.DrawTexture(new Rect(startPos.x - (10 * scale), startPos.y - (4 * scale), panelWidth, panelHeight), whiteTexture);
             GUI.color = Color.white;
         }
 

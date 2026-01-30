@@ -23,6 +23,7 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="doc\english.md" />
+    <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="BaseModLib">
