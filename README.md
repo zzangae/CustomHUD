@@ -2,11 +2,8 @@
 
 ---
 
-# Custom HUD Mod v1.0.0.0
-
+# Custom HUD Mod
 The Forest용 커스텀 HUD 모드
-
----
 
 ## 변경사항 : 1.0.0.2
 - 게이지 막대 높이 증가 (14 → 20)
