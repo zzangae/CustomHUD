@@ -1,3 +1,7 @@
+[English](/doc/english.md)
+
+---
+
 # Custom HUD Mod v1.0.0.0
 
 The Forest용 커스텀 HUD 모드
