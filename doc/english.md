@@ -1,8 +1,10 @@
-﻿# Custom HUD Mod v1.0.0.0
+﻿# Custom HUD Mod for The Forest
 
-Custom HUD Mod for The Forest
+## Changelog: v1.0.0.2
 
----
+- Increased gauge bar height
+- Increased font size
+- Dynamically adjust panel height based on armor presence
 
 ## Changelog: v1.0.0.1
 
