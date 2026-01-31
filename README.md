@@ -2,8 +2,7 @@
 
 ---
 
-# Custom HUD Mod
-The Forest용 커스텀 HUD 모드
+# The Forest Custom HUD Mod
 
 ## 변경사항 : 1.0.0.2
 - 게이지 막대 높이 증가 (14 → 20)
@@ -17,13 +16,14 @@ The Forest용 커스텀 HUD 모드
 - 플레이어 조작 가능 시점에 커스텀 HUD 표시
 - 인트로/엔딩 컷씬 중 HUD 숨김
 
----
-
-## 기능
+## 변경사항 : 1.0.0.0
 - 원형 게이지 → 사각형 막대 스타일
 - 좌측 상단 고정 위치
 - 기존 HUD 자동 숨김
 - 낮은 수치 경고 (깜빡임 효과)
+- 싱글/멀티플레이어 지원
+
+---
 
 ## 표시 항목
 | 라벨 | 색상 | 설명 |
@@ -35,6 +35,8 @@ The Forest용 커스텀 HUD 모드
 | Water | 하늘색 | 갈증 |
 | Armor | 회색 | 방어구 (장착 시) |
 
+---
+
 ## 설치
 ```
 ModAPI/Mods/CustomHUD/
@@ -44,6 +46,8 @@ ModAPI/Mods/CustomHUD/
 1. ModAPI.exe 실행
 2. "Custom HUD" 체크
 3. Build → Launch Game
+
+---
 
 ## 기존 HUD 완전 제거 방법
 ```
@@ -59,7 +63,10 @@ void LateUpdate()
 }
 ```
 
+---
+
 **숨기는 요소들:**
+```
 - HealthBar, HealthBarTarget, HealthBarOutline
 - StaminaBar, StaminaBarOutline
 - EnergyBar, EnergyBarOutline
@@ -67,6 +74,30 @@ void LateUpdate()
 - Hydration, ThirstOutline, ThirstDamageTimer
 - ArmorBar, ColdArmorBar, ArmorNibbles[]
 - 각 요소의 부모 컨테이너도 숨김
+```
+
+**PlayerStats 실제 구조 요약:**
+```
+// 실제 사용 가능한 속성들
+LocalPlayer.Stats.Health        // 체력 (0~100)
+LocalPlayer.Stats.HealthTarget  // 체력 회복 목표치
+LocalPlayer.Stats.Stamina       // 현재 스태미나
+LocalPlayer.Stats.Energy        // 에너지 (= 최대 스태미나)
+LocalPlayer.Stats.Fullness      // 배고픔 (0~1, 1=배부름)
+LocalPlayer.Stats.Thirst        // 갈증 (0~1, 1=목마름)
+LocalPlayer.Stats.Armor         // 방어구 (정수)
+LocalPlayer.Stats.ColdArmor     // 방한 방어구 (0~1)
+```
+
+**HUD 표시 로직:**
+```
+Health   = Health / 100
+Stamina  = Stamina / Energy (Energy가 최대값)
+Energy   = Energy / 100
+Food     = Fullness * 100 (0~1을 0~100으로)
+Water    = (1 - Thirst) * 100 (반전해서 표시)
+Armor    = Armor / 10
+```
 
 ---
 
@@ -83,9 +114,9 @@ void LateUpdate()
                                     (나머지 화면)
 ```
 
+---
+
 ## 요구사항
 - The Forest v1.11b
 - ModAPI
 
-## 버전
-- v1.0.0.0 (2025-01-30)
