@@ -14,6 +14,14 @@
 - Custom HUD displayed when player gains control
 - HUD hidden during intro/ending cutscenes
 
+## Changelog: v1.0.0.0
+
+- Circular gauge → Square bar style
+- Fixed position in the top left corner
+- Existing HUD auto-hides
+- Low value warning (blinking effect)
+- Single/multiplayer support
+
 ---
 
 ## Features
