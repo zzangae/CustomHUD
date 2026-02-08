@@ -1,5 +1,13 @@
 ﻿# Custom HUD Mod for The Forest
 
+## Changelog v1.0.0.3
+- Top left: HP and Armor bar (Armor always visible)
+- Bottom right: Four-part sector circle (Energy, Stamina, Water, Food)
+- Labels and score indicators on sectors
+- Angled gap between sectors increased to 4 degrees
+- Added gap between fill and outline (4px outer, 3px inner)
+- Performance optimizations with pre-generated textures
+
 ## Changelog: v1.0.0.2
 
 - Increased gauge bar height
