@@ -13,76 +13,72 @@ class CustomHudMod : MonoBehaviour
 
     private const float BASE_HEIGHT = 1080f;
 
-    private HudPosition currentPosition = HudPosition.TopLeft;
-    private float baseOffsetX = 15f;
-    private float baseOffsetY = 15f;
+    // 좌측 상단 바 설정
+    private float baseBarOffsetX = 15f;
+    private float baseBarOffsetY = 15f;
+    private float baseBarWidth = 180f;
+    private float baseBarHeight = 22f;
+    private float baseBarSpacing = 6f;
+    private float baseLabelFontSize = 12f;
+    private float baseValueFontSize = 11f;
 
-    private float baseBarWidth = 160f;
-    private float baseBarHeight = 20f;
-    private float baseBarSpacing = 5f;
-    private float baseBorderWidth = 1.5f;
-    private float baseLabelWidth = 55f;
-    private float baseValueWidth = 50f;
-    private float baseLabelFontSize = 11f;
-    private float baseValueFontSize = 10f;
-
-    private bool showLabels = true;
-    private bool showValues = true;
-    private bool showBorder = true;
-    private bool showBackground = true;
+    // 우측 하단 원형 설정
+    private float baseCircleOffsetX = 15f;
+    private float baseCircleOffsetY = 15f;
+    private float baseCircleRadius = 80f;
+    private float baseCircleInnerRadius = 25f;
 
     private float scale = 1f;
-    private float barWidth;
-    private float barHeight;
-    private float barSpacing;
-    private float borderWidth;
-    private float offsetX;
-    private float offsetY;
-    private float labelWidth;
-    private float valueWidth;
-    private int labelFontSize;
-    private int valueFontSize;
-
     private int lastScreenWidth;
     private int lastScreenHeight;
 
-    public enum HudPosition
-    {
-        TopLeft, TopCenter, TopRight,
-        BottomLeft, BottomCenter, BottomRight
-    }
+    // 스케일된 값
+    private float barOffsetX, barOffsetY, barWidth, barHeight, barSpacing;
+    private float circleOffsetX, circleOffsetY, circleRadius, circleInnerRadius;
+    private int labelFontSize, valueFontSize;
 
+    // 색상 - 바
     private Color healthFillColor = new Color(0.85f, 0.2f, 0.2f, 1f);
-    private Color staminaFillColor = new Color(0.2f, 0.8f, 0.3f, 1f);
-    private Color energyFillColor = new Color(0.95f, 0.85f, 0.2f, 1f);
-    private Color foodFillColor = new Color(1f, 0.55f, 0.2f, 1f);
-    private Color waterFillColor = new Color(0.3f, 0.7f, 1f, 1f);
-    private Color armorFillColor = new Color(0.6f, 0.6f, 0.65f, 1f);
-
     private Color healthBgColor = new Color(0.3f, 0.1f, 0.1f, 0.85f);
-    private Color staminaBgColor = new Color(0.1f, 0.25f, 0.1f, 0.85f);
-    private Color energyBgColor = new Color(0.3f, 0.28f, 0.1f, 0.85f);
-    private Color foodBgColor = new Color(0.3f, 0.18f, 0.1f, 0.85f);
-    private Color waterBgColor = new Color(0.1f, 0.2f, 0.3f, 0.85f);
+    private Color armorFillColor = new Color(0.6f, 0.6f, 0.65f, 1f);
     private Color armorBgColor = new Color(0.2f, 0.2f, 0.2f, 0.85f);
 
+    // 색상 - 원형 부채꼴
+    private Color energyColor = new Color(0.95f, 0.85f, 0.2f, 1f);
+    private Color staminaColor = new Color(0.2f, 0.8f, 0.3f, 1f);
+    private Color waterColor = new Color(0.3f, 0.7f, 1f, 1f);
+    private Color foodColor = new Color(1f, 0.55f, 0.2f, 1f);
+    private Color circleBgColor = new Color(0.15f, 0.15f, 0.15f, 0.9f);
+
+    // 공통 색상
     private Color borderColor = new Color(1f, 1f, 1f, 0.6f);
     private Color labelColor = Color.white;
-    private Color valueColor = Color.white;
     private Color shadowColor = new Color(0f, 0f, 0f, 0.7f);
     private Color panelBgColor = new Color(0f, 0f, 0f, 0.5f);
-
     private Color warningColor = new Color(1f, 0.3f, 0.3f, 1f);
     private float warningThreshold = 0.25f;
     private float pulseSpeed = 3f;
 
+    // 텍스처
     private Texture2D whiteTexture;
+    private Texture2D[] quadrantTextures;
+    private Texture2D quadrantBgTexture;
+    private Texture2D circleOutlineTexture;
+    private int circleTextureSize = 256;
+
+    // 스타일
     private GUIStyle labelStyle;
-    private GUIStyle valueStyle;
+    private GUIStyle circleLabelStyle;
     private bool stylesInitialized = false;
+
+    // 상태
     private bool isInitialized = false;
     private bool playerAwake = false;
     private float pulseTime = 0f;
+
+    // 캐시된 값
+    private float[] lastFillAmounts = new float[4];
+    private Texture2D[] quadrantFillTextures;
 
     void Start()
     {
@@ -97,10 +93,220 @@ class CustomHudMod : MonoBehaviour
         whiteTexture.SetPixel(0, 0, Color.white);
         whiteTexture.Apply();
 
+        CreateQuadrantTextures();
+
         DontDestroyOnLoad(gameObject);
         CalculateScale();
 
         isInitialized = true;
+    }
+
+    void CreateQuadrantTextures()
+    {
+        quadrantTextures = new Texture2D[4];
+        quadrantFillTextures = new Texture2D[4];
+
+        Color[] quadrantColors = { energyColor, staminaColor, waterColor, foodColor };
+
+        for (int q = 0; q < 4; q++)
+        {
+            quadrantTextures[q] = CreateQuadrantTexture(q, quadrantColors[q], 1f);
+            quadrantFillTextures[q] = CreateQuadrantTexture(q, quadrantColors[q], 1f);
+            lastFillAmounts[q] = 1f;
+        }
+
+        quadrantBgTexture = CreateFullCircleBgTexture();
+        circleOutlineTexture = CreateCircleOutlineTexture();
+    }
+
+    float GetAngleFromCenter(float dx, float dy)
+    {
+        float angle = Mathf.Atan2(dx, -dy) * Mathf.Rad2Deg;
+        if (angle < 0) angle += 360f;
+        return angle;
+    }
+
+    Texture2D CreateQuadrantTexture(int quadrant, Color color, float fillAmount)
+    {
+        Texture2D tex = new Texture2D(circleTextureSize, circleTextureSize, TextureFormat.RGBA32, false);
+        tex.filterMode = FilterMode.Bilinear;
+
+        float center = circleTextureSize / 2f;
+        float outerRadius = circleTextureSize / 2f - 2f;
+        float innerRadius = outerRadius * 0.31f;
+
+        float outerGap = 4f;
+        float innerGap = 3f;
+        float maxFillOuter = outerRadius - outerGap;
+        float minFillInner = innerRadius + innerGap;
+        float fillRadius = minFillInner + (maxFillOuter - minFillInner) * fillAmount;
+
+        float gapAngle = 4f;
+        float startAngle = quadrant * 90f - 45f + gapAngle / 2f;
+        if (startAngle < 0) startAngle += 360f;
+        float endAngle = startAngle + 90f - gapAngle;
+        if (endAngle >= 360f) endAngle -= 360f;
+
+        Color[] pixels = new Color[circleTextureSize * circleTextureSize];
+
+        for (int y = 0; y < circleTextureSize; y++)
+        {
+            for (int x = 0; x < circleTextureSize; x++)
+            {
+                float dx = x - center;
+                float dy = y - center;
+                float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                float angle = GetAngleFromCenter(dx, dy);
+
+                int index = y * circleTextureSize + x;
+
+                bool inAngleRange = false;
+                if (startAngle > endAngle)
+                {
+                    inAngleRange = (angle >= startAngle || angle < endAngle);
+                }
+                else
+                {
+                    inAngleRange = (angle >= startAngle && angle < endAngle);
+                }
+
+                if (dist <= fillRadius && dist >= minFillInner && inAngleRange)
+                {
+                    float edge = Mathf.Clamp01((fillRadius - dist) * 2f);
+                    float innerEdge = Mathf.Clamp01((dist - minFillInner) * 2f);
+                    float alpha = Mathf.Min(edge, innerEdge);
+
+                    pixels[index] = new Color(color.r, color.g, color.b, alpha);
+                }
+                else
+                {
+                    pixels[index] = Color.clear;
+                }
+            }
+        }
+
+        tex.SetPixels(pixels);
+        tex.Apply();
+        return tex;
+    }
+
+    Texture2D CreateFullCircleBgTexture()
+    {
+        Texture2D tex = new Texture2D(circleTextureSize, circleTextureSize, TextureFormat.RGBA32, false);
+        tex.filterMode = FilterMode.Bilinear;
+
+        float center = circleTextureSize / 2f;
+        float outerRadius = circleTextureSize / 2f - 2f;
+        float innerRadius = outerRadius * 0.31f;
+
+        Color[] pixels = new Color[circleTextureSize * circleTextureSize];
+
+        for (int y = 0; y < circleTextureSize; y++)
+        {
+            for (int x = 0; x < circleTextureSize; x++)
+            {
+                float dx = x - center;
+                float dy = y - center;
+                float dist = Mathf.Sqrt(dx * dx + dy * dy);
+
+                int index = y * circleTextureSize + x;
+
+                if (dist <= outerRadius && dist >= innerRadius)
+                {
+                    float edge = Mathf.Clamp01((outerRadius - dist) * 2f);
+                    float innerEdge = Mathf.Clamp01((dist - innerRadius) * 2f);
+                    float alpha = Mathf.Min(edge, innerEdge) * circleBgColor.a;
+
+                    pixels[index] = new Color(circleBgColor.r, circleBgColor.g, circleBgColor.b, alpha);
+                }
+                else
+                {
+                    pixels[index] = Color.clear;
+                }
+            }
+        }
+
+        tex.SetPixels(pixels);
+        tex.Apply();
+        return tex;
+    }
+
+    Texture2D CreateCircleOutlineTexture()
+    {
+        Texture2D tex = new Texture2D(circleTextureSize, circleTextureSize, TextureFormat.RGBA32, false);
+        tex.filterMode = FilterMode.Bilinear;
+
+        float center = circleTextureSize / 2f;
+        float outerRadius = circleTextureSize / 2f - 2f;
+        float innerRadius = outerRadius * 0.31f;
+        float lineWidth = 2f;
+
+        Color[] pixels = new Color[circleTextureSize * circleTextureSize];
+
+        for (int y = 0; y < circleTextureSize; y++)
+        {
+            for (int x = 0; x < circleTextureSize; x++)
+            {
+                float dx = x - center;
+                float dy = y - center;
+                float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                float angle = GetAngleFromCenter(dx, dy);
+
+                int index = y * circleTextureSize + x;
+                pixels[index] = Color.clear;
+
+                bool onOuterRing = Mathf.Abs(dist - outerRadius) < lineWidth;
+                bool onInnerRing = Mathf.Abs(dist - innerRadius) < lineWidth;
+
+                if ((onOuterRing || onInnerRing) && dist <= outerRadius && dist >= innerRadius - lineWidth)
+                {
+                    float alpha = 1f - Mathf.Abs(dist - (onOuterRing ? outerRadius : innerRadius)) / lineWidth;
+                    pixels[index] = new Color(borderColor.r, borderColor.g, borderColor.b, alpha * borderColor.a);
+                }
+
+                if (dist > innerRadius - lineWidth && dist < outerRadius + lineWidth)
+                {
+                    for (int i = 0; i < 4; i++)
+                    {
+                        float dividerAngle = i * 90f - 45f;
+                        if (dividerAngle < 0) dividerAngle += 360f;
+
+                        float angleDiff = Mathf.Abs(angle - dividerAngle);
+                        if (angleDiff > 180f) angleDiff = 360f - angleDiff;
+
+                        float angleWidth = (lineWidth / dist) * Mathf.Rad2Deg;
+                        if (angleDiff < angleWidth && dist >= innerRadius && dist <= outerRadius)
+                        {
+                            float alpha = 1f - angleDiff / angleWidth;
+                            Color existing = pixels[index];
+                            pixels[index] = new Color(
+                                Mathf.Max(existing.r, borderColor.r * 0.5f),
+                                Mathf.Max(existing.g, borderColor.g * 0.5f),
+                                Mathf.Max(existing.b, borderColor.b * 0.5f),
+                                Mathf.Max(existing.a, alpha * borderColor.a * 0.5f)
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        tex.SetPixels(pixels);
+        tex.Apply();
+        return tex;
+    }
+
+    void UpdateQuadrantFillTexture(int quadrant, float fillAmount, Color color)
+    {
+        if (Mathf.Abs(lastFillAmounts[quadrant] - fillAmount) < 0.01f) return;
+
+        lastFillAmounts[quadrant] = fillAmount;
+
+        if (quadrantFillTextures[quadrant] != null)
+        {
+            Destroy(quadrantFillTextures[quadrant]);
+        }
+        quadrantFillTextures[quadrant] = CreateQuadrantTexture(quadrant, color, fillAmount);
     }
 
     void Update()
@@ -115,10 +321,8 @@ class CustomHudMod : MonoBehaviour
             stylesInitialized = false;
         }
 
-        // 오리지널 HUD는 항상 숨김
         HideOriginalHudComplete();
 
-        // 플레이어 조작 가능 여부 체크 (커스텀 HUD 표시용)
         if (!playerAwake && IsPlayerAwake())
         {
             playerAwake = true;
@@ -127,7 +331,6 @@ class CustomHudMod : MonoBehaviour
 
     void LateUpdate()
     {
-        // 오리지널 HUD는 항상 숨김
         HideOriginalHudComplete();
     }
 
@@ -138,12 +341,34 @@ class CustomHudMod : MonoBehaviour
         if (!CanShowHud()) return;
 
         InitStyles();
-        DrawCustomHud();
+
+        DrawTopLeftBars();
+        DrawBottomRightCircle();
     }
 
     void OnDestroy()
     {
         ShowOriginalHud();
+
+        if (quadrantBgTexture != null) Destroy(quadrantBgTexture);
+        if (circleOutlineTexture != null) Destroy(circleOutlineTexture);
+        if (whiteTexture != null) Destroy(whiteTexture);
+
+        if (quadrantTextures != null)
+        {
+            for (int i = 0; i < quadrantTextures.Length; i++)
+            {
+                if (quadrantTextures[i] != null) Destroy(quadrantTextures[i]);
+            }
+        }
+
+        if (quadrantFillTextures != null)
+        {
+            for (int i = 0; i < quadrantFillTextures.Length; i++)
+            {
+                if (quadrantFillTextures[i] != null) Destroy(quadrantFillTextures[i]);
+            }
+        }
     }
 
     bool IsPlayerAwake()
@@ -183,19 +408,182 @@ class CustomHudMod : MonoBehaviour
         scale = Screen.height / BASE_HEIGHT;
         scale = Mathf.Clamp(scale, 0.6f, 2.2f);
 
+        barOffsetX = baseBarOffsetX * scale;
+        barOffsetY = baseBarOffsetY * scale;
         barWidth = baseBarWidth * scale;
         barHeight = baseBarHeight * scale;
         barSpacing = baseBarSpacing * scale;
-        borderWidth = Mathf.Max(1f, baseBorderWidth * scale);
-        offsetX = baseOffsetX * scale;
-        offsetY = baseOffsetY * scale;
-        labelWidth = baseLabelWidth * scale;
-        valueWidth = baseValueWidth * scale;
 
-        labelFontSize = Mathf.Clamp(Mathf.RoundToInt(baseLabelFontSize * scale), 8, 20);
-        valueFontSize = Mathf.Clamp(Mathf.RoundToInt(baseValueFontSize * scale), 7, 18);
+        circleOffsetX = baseCircleOffsetX * scale;
+        circleOffsetY = baseCircleOffsetY * scale;
+        circleRadius = baseCircleRadius * scale;
+        circleInnerRadius = baseCircleInnerRadius * scale;
+
+        labelFontSize = Mathf.Clamp(Mathf.RoundToInt(baseLabelFontSize * scale), 9, 22);
+        valueFontSize = Mathf.Clamp(Mathf.RoundToInt(baseValueFontSize * scale), 8, 20);
     }
 
+    void InitStyles()
+    {
+        if (stylesInitialized) return;
+
+        labelStyle = new GUIStyle(GUI.skin.label)
+        {
+            fontSize = labelFontSize,
+            fontStyle = FontStyle.Bold,
+            alignment = TextAnchor.MiddleLeft
+        };
+        labelStyle.normal.textColor = labelColor;
+
+        circleLabelStyle = new GUIStyle(GUI.skin.label)
+        {
+            fontSize = Mathf.RoundToInt(valueFontSize * 0.85f),
+            fontStyle = FontStyle.Bold,
+            alignment = TextAnchor.MiddleCenter
+        };
+        circleLabelStyle.normal.textColor = labelColor;
+
+        stylesInitialized = true;
+    }
+
+    // ========== 좌측 상단 바 ==========
+    void DrawTopLeftBars()
+    {
+        float x = barOffsetX;
+        float y = barOffsetY;
+
+        int barCount = 2;
+        float panelWidth = barWidth + 20 * scale;
+        float panelHeight = (barHeight + barSpacing) * barCount - barSpacing + 12 * scale;
+
+        GUI.color = panelBgColor;
+        GUI.DrawTexture(new Rect(x - 6 * scale, y - 6 * scale, panelWidth, panelHeight), whiteTexture);
+        GUI.color = Color.white;
+
+        DrawBar(x, y, "HP", LocalPlayer.Stats.Health, 100f, healthFillColor, healthBgColor, true);
+
+        y += barHeight + barSpacing;
+        DrawBar(x, y, "Armor", LocalPlayer.Stats.Armor, 10f, armorFillColor, armorBgColor, false);
+    }
+
+    void DrawBar(float x, float y, string label, float current, float max, Color fillColor, Color bgColor, bool enableWarning)
+    {
+        float fillAmount = Mathf.Clamp01(current / max);
+        bool isWarning = enableWarning && fillAmount < warningThreshold;
+        float pulse = isWarning ? (Mathf.Sin(pulseTime) * 0.3f + 0.7f) : 1f;
+
+        Rect barRect = new Rect(x, y, barWidth, barHeight);
+        Rect fillRect = new Rect(x, y, barWidth * fillAmount, barHeight);
+
+        GUI.color = bgColor;
+        GUI.DrawTexture(barRect, whiteTexture);
+
+        if (fillAmount > 0)
+        {
+            Color currentFillColor = isWarning ? Color.Lerp(fillColor, warningColor, pulse) : fillColor;
+            currentFillColor.a *= pulse;
+            GUI.color = currentFillColor;
+            GUI.DrawTexture(fillRect, whiteTexture);
+        }
+
+        GUI.color = isWarning ? Color.Lerp(borderColor, warningColor, pulse * 0.5f) : borderColor;
+        DrawBorder(barRect, Mathf.Max(1f, 1.5f * scale));
+
+        string text = string.Format("{0} {1:F0}/{2:F0}", label, current, max);
+        GUI.color = shadowColor;
+        GUI.Label(new Rect(x + 5 * scale + 1, y + 1, barWidth - 10 * scale, barHeight), text, labelStyle);
+        GUI.color = isWarning ? Color.Lerp(labelColor, warningColor, pulse) : labelColor;
+        GUI.Label(new Rect(x + 5 * scale, y, barWidth - 10 * scale, barHeight), text, labelStyle);
+
+        GUI.color = Color.white;
+    }
+
+    void DrawBorder(Rect rect, float width)
+    {
+        GUI.DrawTexture(new Rect(rect.x, rect.y, rect.width, width), whiteTexture);
+        GUI.DrawTexture(new Rect(rect.x, rect.yMax - width, rect.width, width), whiteTexture);
+        GUI.DrawTexture(new Rect(rect.x, rect.y, width, rect.height), whiteTexture);
+        GUI.DrawTexture(new Rect(rect.xMax - width, rect.y, width, rect.height), whiteTexture);
+    }
+
+    // ========== 우측 하단 원형 ==========
+    void DrawBottomRightCircle()
+    {
+        float size = circleRadius * 2;
+        float x = Screen.width - circleOffsetX - size;
+        float y = Screen.height - circleOffsetY - size;
+
+        Rect circleRect = new Rect(x, y, size, size);
+
+        float energy = Mathf.Clamp01(LocalPlayer.Stats.Energy / 100f);
+        float stamina = Mathf.Clamp01(LocalPlayer.Stats.Stamina / Mathf.Max(1f, LocalPlayer.Stats.Energy));
+        float water = Mathf.Clamp01(1f - LocalPlayer.Stats.Thirst);
+        float food = Mathf.Clamp01(LocalPlayer.Stats.Fullness);
+
+        float[] fillAmounts = { energy, stamina, water, food };
+        Color[] colors = { energyColor, staminaColor, waterColor, foodColor };
+        string[] labels = { "Energy", "Stamina", "Water", "Food" };
+
+        // 배경
+        GUI.color = Color.white;
+        GUI.DrawTexture(circleRect, quadrantBgTexture);
+
+        // 각 부채꼴
+        for (int i = 0; i < 4; i++)
+        {
+            bool isWarning = fillAmounts[i] < warningThreshold;
+            float pulse = isWarning ? (Mathf.Sin(pulseTime) * 0.3f + 0.7f) : 1f;
+
+            UpdateQuadrantFillTexture(i, fillAmounts[i], colors[i]);
+
+            if (fillAmounts[i] > 0 && quadrantFillTextures[i] != null)
+            {
+                GUI.color = isWarning ? new Color(1f, pulse, pulse, pulse) : new Color(1f, 1f, 1f, 1f);
+                GUI.DrawTexture(circleRect, quadrantFillTextures[i]);
+            }
+        }
+
+        // 외곽선
+        GUI.color = Color.white;
+        GUI.DrawTexture(circleRect, circleOutlineTexture);
+
+        // 라벨 및 점수
+        float centerX = x + size / 2;
+        float centerY = y + size / 2;
+        float labelRadius = circleRadius * 0.65f;
+
+        int[] scores = {
+            Mathf.RoundToInt(fillAmounts[0] * 100),
+            Mathf.RoundToInt(fillAmounts[1] * 100),
+            Mathf.RoundToInt(fillAmounts[2] * 100),
+            Mathf.RoundToInt(fillAmounts[3] * 100)
+        };
+
+        for (int i = 0; i < 4; i++)
+        {
+            float angle = Mathf.Deg2Rad * (i * 90f);
+            float labelX = centerX + Mathf.Sin(angle) * labelRadius;
+            float labelY = centerY - Mathf.Cos(angle) * labelRadius;
+
+            bool isWarning = fillAmounts[i] < warningThreshold;
+            float pulse = isWarning ? (Mathf.Sin(pulseTime) * 0.3f + 0.7f) : 1f;
+
+            float labelWidth = 50 * scale;
+            float labelHeight = 28 * scale;
+            Rect labelRect = new Rect(labelX - labelWidth / 2, labelY - labelHeight / 2, labelWidth, labelHeight);
+
+            string displayText = labels[i] + "\n" + scores[i];
+
+            GUI.color = shadowColor;
+            GUI.Label(new Rect(labelRect.x + 1, labelRect.y + 1, labelRect.width, labelRect.height), displayText, circleLabelStyle);
+            GUI.color = isWarning ? Color.Lerp(labelColor, warningColor, pulse) : labelColor;
+            GUI.Label(labelRect, displayText, circleLabelStyle);
+        }
+
+        GUI.color = Color.white;
+    }
+
+    // ========== 오리지널 HUD 제어 ==========
     void HideOriginalHudComplete()
     {
         if (Scene.HudGui == null) return;
@@ -276,136 +664,5 @@ class CustomHudMod : MonoBehaviour
     void SetGameObjectActive(GameObject go, bool active)
     {
         if (go != null) go.SetActive(active);
-    }
-
-    void InitStyles()
-    {
-        if (stylesInitialized) return;
-
-        labelStyle = new GUIStyle(GUI.skin.label) { fontSize = labelFontSize, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
-        labelStyle.normal.textColor = labelColor;
-
-        valueStyle = new GUIStyle(GUI.skin.label) { fontSize = valueFontSize, fontStyle = FontStyle.Normal, alignment = TextAnchor.MiddleRight };
-        valueStyle.normal.textColor = valueColor;
-
-        stylesInitialized = true;
-    }
-
-    void DrawCustomHud()
-    {
-        Vector2 startPos = CalculateStartPosition();
-        float currentY = startPos.y;
-
-        int barCount = (LocalPlayer.Stats.Armor > 0) ? 6 : 5;
-
-        if (showBackground)
-        {
-            float panelHeight = (barHeight + barSpacing) * barCount - barSpacing + (8 * scale);
-            float panelWidth = barWidth + (20 * scale);
-            if (showLabels) panelWidth += labelWidth;
-            if (showValues) panelWidth += valueWidth;
-
-            GUI.color = panelBgColor;
-            GUI.DrawTexture(new Rect(startPos.x - (10 * scale), startPos.y - (4 * scale), panelWidth, panelHeight), whiteTexture);
-            GUI.color = Color.white;
-        }
-
-        DrawStatBar(startPos.x, currentY, "Health", LocalPlayer.Stats.Health, 100f, healthFillColor, healthBgColor, true);
-        currentY += barHeight + barSpacing;
-
-        DrawStatBar(startPos.x, currentY, "Stamina", LocalPlayer.Stats.Stamina, LocalPlayer.Stats.Energy, staminaFillColor, staminaBgColor, true);
-        currentY += barHeight + barSpacing;
-
-        DrawStatBar(startPos.x, currentY, "Energy", LocalPlayer.Stats.Energy, 100f, energyFillColor, energyBgColor, true);
-        currentY += barHeight + barSpacing;
-
-        DrawStatBar(startPos.x, currentY, "Food", LocalPlayer.Stats.Fullness * 100f, 100f, foodFillColor, foodBgColor, true);
-        currentY += barHeight + barSpacing;
-
-        DrawStatBar(startPos.x, currentY, "Water", (1f - LocalPlayer.Stats.Thirst) * 100f, 100f, waterFillColor, waterBgColor, true);
-        currentY += barHeight + barSpacing;
-
-        if (LocalPlayer.Stats.Armor > 0)
-        {
-            DrawStatBar(startPos.x, currentY, "Armor", LocalPlayer.Stats.Armor, 10f, armorFillColor, armorBgColor, false);
-        }
-    }
-
-    void DrawStatBar(float x, float y, string label, float current, float max, Color fillColor, Color bgColor, bool enableWarning)
-    {
-        float currentLabelWidth = showLabels ? labelWidth : 0f;
-        float currentValueWidth = showValues ? valueWidth : 0f;
-        float actualBarWidth = barWidth;
-
-        float fillAmount = Mathf.Clamp01(current / max);
-        bool isWarning = enableWarning && fillAmount < warningThreshold;
-        float pulse = isWarning ? (Mathf.Sin(pulseTime) * 0.3f + 0.7f) : 1f;
-
-        if (showLabels)
-        {
-            GUI.color = shadowColor;
-            GUI.Label(new Rect(x + 1, y + 1, currentLabelWidth, barHeight), label, labelStyle);
-            GUI.color = isWarning ? Color.Lerp(labelColor, warningColor, pulse) : labelColor;
-            GUI.Label(new Rect(x, y, currentLabelWidth, barHeight), label, labelStyle);
-        }
-
-        float barX = x + currentLabelWidth;
-
-        GUI.color = bgColor;
-        GUI.DrawTexture(new Rect(barX, y, actualBarWidth, barHeight), whiteTexture);
-
-        Color currentFillColor = isWarning ? Color.Lerp(fillColor, warningColor, pulse) : fillColor;
-        currentFillColor.a *= pulse;
-        GUI.color = currentFillColor;
-        GUI.DrawTexture(new Rect(barX, y, actualBarWidth * fillAmount, barHeight), whiteTexture);
-
-        if (showBorder)
-        {
-            GUI.color = isWarning ? Color.Lerp(borderColor, warningColor, pulse * 0.5f) : borderColor;
-            DrawBorder(new Rect(barX, y, actualBarWidth, barHeight), borderWidth);
-        }
-
-        if (showValues)
-        {
-            string valueText = string.Format("{0:F0}/{1:F0}", current, max);
-            float valueX = barX + actualBarWidth + (5 * scale);
-            GUI.color = shadowColor;
-            GUI.Label(new Rect(valueX + 1, y + 1, currentValueWidth, barHeight), valueText, valueStyle);
-            GUI.color = isWarning ? Color.Lerp(valueColor, warningColor, pulse) : valueColor;
-            GUI.Label(new Rect(valueX, y, currentValueWidth, barHeight), valueText, valueStyle);
-        }
-
-        GUI.color = Color.white;
-    }
-
-    void DrawBorder(Rect rect, float width)
-    {
-        GUI.DrawTexture(new Rect(rect.x, rect.y, rect.width, width), whiteTexture);
-        GUI.DrawTexture(new Rect(rect.x, rect.yMax - width, rect.width, width), whiteTexture);
-        GUI.DrawTexture(new Rect(rect.x, rect.y, width, rect.height), whiteTexture);
-        GUI.DrawTexture(new Rect(rect.xMax - width, rect.y, width, rect.height), whiteTexture);
-    }
-
-    Vector2 CalculateStartPosition()
-    {
-        float totalHeight = (barHeight + barSpacing) * 6;
-        float totalWidth = barWidth;
-        if (showLabels) totalWidth += labelWidth;
-        if (showValues) totalWidth += valueWidth;
-
-        float x = offsetX;
-        float y = offsetY;
-
-        switch (currentPosition)
-        {
-            case HudPosition.TopLeft: x = offsetX; y = offsetY; break;
-            case HudPosition.TopCenter: x = (Screen.width - totalWidth) / 2; y = offsetY; break;
-            case HudPosition.TopRight: x = Screen.width - totalWidth - offsetX; y = offsetY; break;
-            case HudPosition.BottomLeft: x = offsetX; y = Screen.height - totalHeight - offsetY; break;
-            case HudPosition.BottomCenter: x = (Screen.width - totalWidth) / 2; y = Screen.height - totalHeight - offsetY; break;
-            case HudPosition.BottomRight: x = Screen.width - totalWidth - offsetX; y = Screen.height - totalHeight - offsetY; break;
-        }
-
-        return new Vector2(x, y);
     }
 }

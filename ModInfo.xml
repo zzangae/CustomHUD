@@ -8,5 +8,5 @@
     <EN>Replaces circular gauges with rectangle bars. Displays Health, Stamina, Energy, Food, Water, Armor with full English labels. Low value warning with pulse effect.</EN>
     <KO>원형 게이지를 직사각형 막대로 대체합니다. 체력, 스태미나, 에너지, 음식, 물, 방어력을 영문으로 표시합니다. 수치가 낮으면 펄스 효과로 경고합니다.</KO>
   </Description>
-  <Version>1.0.0.2</Version>
+  <Version>1.0.0.3</Version>
 </Mod>
